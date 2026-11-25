@@ -1,0 +1,24 @@
+# Astral Shapes keep-alive (25 Oct 2026). Layer three of three (README section 9a).
+# Sends one web request to the game's public check-in address every 3 days; run it by hand: repo > Actions > Astral keep-alive > Run workflow.
+# Set the repository variable ASTRAL_SUPABASE_REF to the live project ref (a public id, so a variable, not a secret).
+# The request carries no key and no data. checkin answers 401 to it; that still proves the project is awake.
+# The job fails only when the project does not answer at all or answers with a server error (5xx), so a red tick in Actions means "look at the dashboard".
+name: Astral keep-alive
+
+on:
+  schedule:
+    - cron: "37 5 */3 * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the public check-in address
+        env:
+          ASTRAL_SUPABASE_REF: ${{ vars.ASTRAL_SUPABASE_REF }}
+        run: |
+          if [ -z "$ASTRAL_SUPABASE_REF" ]; then echo "Set the repository variable ASTRAL_SUPABASE_REF to the live project ref."; exit 1; fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" -m 30 -X POST -H "Content-Type: application/json" -d '{}' "https://${ASTRAL_SUPABASE_REF}.supabase.co/functions/v1/checkin" || true)
+          echo "answer: $code"
+          if [ -z "$code" ] || [ "$code" = "000" ] || [ "$code" -ge 500 ]; then exit 1; fi
